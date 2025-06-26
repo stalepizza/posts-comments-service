@@ -3,6 +3,8 @@
 This is a full-stack web application built using **Flask (Python)** on the backend and **HTML/CSS/JavaScript** on the frontend.  
 It allows users to create, view, and delete blog posts, add comments, and optionally upload an image for each post.
 
+![image](https://github.com/user-attachments/assets/edffa71d-c013-44f0-9ef7-3b016aa69849)
+
 ---
 
 ## 🔧 Features
