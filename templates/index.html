@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Post & Comments App</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: #fff;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button.delete-btn {
+            background-color: #dc3545;
+            color: #fff;
+            padding: 6px 12px;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        button.delete-btn:hover {
+            background-color: #b02a37;
+        }
+
+        #posts {
+            margin-top: 30px;
+        }
+
+        .post {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 5px solid #007bff;
+        }
+
+        .post h3 {
+            margin: 0 0 10px;
+            color: #0056b3;
+        }
+
+        .post p {
+            margin: 0;
+            color: #444;
+        }
+
+        .comment {
+            margin-left: 10px;
+            padding: 5px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Create New Post</h1>
+        <input id="title" placeholder="Title" />
+        <textarea id="body" placeholder="Body" rows="5"></textarea>
+        <input type="file" id="image" accept="image/*" /><br>
+        <button onclick="submitPost()">Submit Post</button>
+
+        <h2>All Posts</h2>
+        <div id="posts"></div>
+    </div>
+
+    <script>
+        async function fetchPosts() {
+            try {
+                const res = await fetch('/posts');
+                const posts = await res.json();
+                const postsDiv = document.getElementById('posts');
+                postsDiv.innerHTML = '';
+
+                posts.forEach(post => {
+                    const postDiv = document.createElement('div');
+                    postDiv.className = 'post';
+
+                    postDiv.innerHTML = `
+                        <h3>${post.title}</h3>
+                        <p>${post.body}</p>
+                        ${post.image ? `<img src="/static/uploads/${post.image}" width="200" style="margin:10px 0;"/>` : ''}
+                        <button class="delete-btn" onclick="deletePost(${post.id})">🗑️ Delete Post</button>
+
+                        <h4>Comments</h4>
+                        <div id="comments-${post.id}" class="comments"></div>
+
+                        <input id="comment-body-${post.id}" placeholder="Add a comment" />
+                        <button onclick="submitComment(${post.id})">Submit Comment</button>
+                    `;
+
+                    postsDiv.appendChild(postDiv);
+                    fetchComments(post.id);
+                });
+            } catch (error) {
+                console.error('Error fetching posts:', error);
+            }
+        }
+
+        async function fetchComments(postId) {
+            try {
+                const res = await fetch(`/posts/${postId}/comments`);
+                const comments = await res.json();
+                const commentsDiv = document.getElementById(`comments-${postId}`);
+                commentsDiv.innerHTML = '';
+
+                comments.forEach(comment => {
+                    const commentDiv = document.createElement('div');
+                    commentDiv.className = 'comment';
+
+                    commentDiv.innerHTML = `
+                        <p>${comment.body} <button class="delete-btn" onclick="deleteComment(${comment.id}, ${postId})">🗑️ Delete</button></p>
+                    `;
+                    commentsDiv.appendChild(commentDiv);
+                });
+            } catch (error) {
+                console.error(`Error fetching comments for post ${postId}:`, error);
+            }
+        }
+
+        async function submitPost() {
+            const title = document.getElementById('title').value.trim();
+            const body = document.getElementById('body').value.trim();
+            const image = document.getElementById('image').files[0];
+
+            if (!title || !body) return alert('Title and Body are required.');
+
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('body', body);
+            if (image) formData.append('image', image);
+
+            try {
+                await fetch('/posts', { method: 'POST', body: formData });
+                document.getElementById('title').value = '';
+                document.getElementById('body').value = '';
+                document.getElementById('image').value = '';
+                fetchPosts();
+            } catch (error) {
+                console.error('Error submitting post:', error);
+            }
+        }
+
+        async function submitComment(postId) {
+            const input = document.getElementById(`comment-body-${postId}`);
+            const body = input.value.trim();
+
+            if (!body) return alert('Comment cannot be empty.');
+
+            try {
+                await fetch(`/posts/${postId}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body })
+                });
+                input.value = '';
+                fetchComments(postId);
+            } catch (error) {
+                console.error(`Error submitting comment for post ${postId}:`, error);
+            }
+        }
+
+        async function deletePost(postId) {
+            try {
+                await fetch(`/posts/${postId}`, { method: 'DELETE' });
+                fetchPosts();
+            } catch (error) {
+                console.error(`Error deleting post ${postId}:`, error);
+            }
+        }
+
+        async function deleteComment(commentId, postId) {
+            try {
+                await fetch(`/comments/${commentId}`, { method: 'DELETE' });
+                fetchComments(postId);
+            } catch (error) {
+                console.error(`Error deleting comment ${commentId}:`, error);
+            }
+        }
+
+        // Initial load
+        fetchPosts();
+    </script>
+</body>
+
+</html>
